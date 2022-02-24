@@ -1,3 +1,2 @@
-# propofol_1
-#  What happens to the text in the preview changes
-## this one?
+### This repository displays some projects I did during the courses.
+
