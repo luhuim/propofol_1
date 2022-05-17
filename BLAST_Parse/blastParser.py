@@ -28,7 +28,7 @@ Procedure:
 
 Usage:
     Run it in terminal.
-    python3 HuiminLu_blastParser.py yeast_vs_Paxillus.blastp
+    python3 blastParser.py yeast_vs_Paxillus.blastp
 """
 #%%
 def blast(input_file):
