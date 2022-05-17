@@ -1,0 +1,123 @@
+---
+title: "Questin_2"
+author: "Huimin Lu"
+date: "2022/1/10"
+output: word_document
+---
+# 2a
+The ten field is a categorical variable and the experiment give the same operation to every field. So we can regard the ten fields are ten block, and these are ten repeated samples as well. In this case, simple block design is suitable for this data. 
+```{r}
+setwd("H:\\Lund Data analysing\\Exam2021")
+```
+
+```{r}
+library(car)
+library(ggplot2)
+library(lattice)
+library(lme4)
+library(lmerTest)
+library(multcomp)
+```
+## 1,Import data and check
+```{r}
+pine <- read.csv("pine.csv")
+pine$site <- factor(pine$site)
+pine$treat <- factor(pine$treat)
+str(pine)
+```
+## 2,Explore data
+```{r}
+boxplot(len~treat, data=pine)
+```
+The box plot show that the lenghth of pines using runoff water is higher than pines using nothing, but lower than pines using fertilizer.
+## 3,Construct model
+```{r}
+
+fit.pine <- lmer(len~treat+(1|site), data=pine)
+```
+## 4,Check assumptions
+```{r}
+#Independent observations
+#The data is collected through experiment, there is no relatonship among each other
+
+plot(fit.pine)
+
+qqnorm(resid(fit.pine))
+qqline(resid(fit.pine))
+
+shapiro.test(resid(fit.pine))
+x <- resid(fit.pine)
+y <- pnorm(summary(x), mean = mean(x, na.rm=TRUE), sd = sd(x, na.rm=TRUE))
+ks.test(x, y)
+leveneTest(len~site, data=pine)
+#The QQ-plot looks not so good, but the residuals vs.fitted plot is fine and the Levene’s test is not significant. We can consider the assumptions sufficiently well-fulfilled, although perhaps not very good.
+
+```
+## 5,Get results of simple block design
+```{r}
+summary(fit.pine)
+anova(fit.pine)
+# There is a significant effects of 'treat'.
+ranova(fit.pine)
+# The random effect is not significant different, which means the difference among ten fields is not significent. 
+```
+
+```{r}
+#Posthoc test
+ph.pine <- glht(fit.pine, linfct = mcp(treat = "Tukey"))
+summary(ph.pine)
+cld(ph.pine)
+# Through posthoc test, there are significant effects among three level of treat.
+```
+## 6,Compare with results when not controlling for block
+```{r}
+anova(lm(len~treat, data=pine))
+# The effect of treat is still significant without concroling for block.
+```
+In conclusion, the effect of runoff water doesn't reach the effect of fertilizer significantly.
+
+# 2b
+```{r}
+#Illustrate results
+#Barplot of mean with error bars for standard error
+mean.len <- aggregate(list(len=pine$len), by=list(treat=pine$treat), mean, na.rm=TRUE)
+SE <- function(x) sd(x, na.rm=TRUE)/(sqrt(sum(!is.na(x))))
+se.len <- aggregate(list(SE=pine$len), by=list(treat=pine$treat), FUN=SE)
+len.dat <- cbind(mean.len, SE=se.len$SE, cld=c("a","c","b"))
+ggplot(len.dat, aes(x=treat, y=len)) + 
+	geom_bar(stat="identity", fill="moccasin") +
+	geom_errorbar(aes(ymin=len-SE, ymax=len+SE, width=0.1)) +
+	xlab("Treat") +
+	ylab("Length") +
+	scale_x_discrete(labels=c("Control", "Fertilizer", "Runoff")) +
+	theme_bw()
+```
+According to the comparison with results without controlling for block and the result of `ranova()``, data of three groups are still different significantly even if we don't consider the property of ten different fields. So we only need to consider the relationship between three treatments and the length of pines. In this case, bar chart is suitable for showing the difference of pines' length among three treatments. 
+The picture above is a  bar plot of mean length of pines for each groups, and the flat arrows represent the standard error of each group. And there is significant difference among three groups.
+
+#2c and 2d
+Explaining the results of tests of the assumptions of simple block design. The assumption of simple block design is that independent observations; normality of the residuals; similar error variance across all levels of the random (block) effect.
+
+Firstly, `plot(fit.pine)` is a plot that shows the residuals of model, and the residuals distribute in the two sides of horizontal line zero.
+
+Secondly, `qqnorm(resid(fit.pine))` and `qqline(resid(fit.pine))` generate a QQ-plot of residuals, and if these points fit the straight line in the plot, that means the residuals are normal distribution. In the plot above, the QQ-plot looks not so good, though is is just a subjective perspective.
+
+Thirdly, Shapiro-Wilk normality test is to test whether the residuals of model is normality. The null hypothesis is that data is normal distribution, and alternative hypothesis is that data is not normal distribution. In the data above, p-value = 0.08977, which means the residuals are normal distribution.
+
+Fourthly, Two-sample Kolmogorov-Smirnov test, is to compare whether the distribution is the same. The null hypothesis is that the distribution between two groups are the same, and alternative hypothesis is that the distribution is not the same. In the result above, it compare the residuals with a normal distribution data, and p-value = 0.08821, which means that residuals are normal distribution.
+
+Fifthly, Levene's test is to to test if several samples have equal variances. And null hypothesis is that variance of all groups are equal, and alternative hypothesis is that variance of all groups are not equal. in the test above, p-value = 0.997, which means that all treatments have the the similar error variance.
+
+Sixthly, the null hypothesis of `anova()` is that means among all groups are equal. and the null hypothesis of `ranova()` is that the means among ramdon samples are equal.
+
+
+
+
+
+
+
+
+
+
+
+

@@ -1,0 +1,201 @@
+---
+title: "Question_3"
+author: "Huimin Lu"
+date: "2022/1/12"
+output:
+  word_document: default
+  pdf_document: default
+---
+```{r}
+setwd("H:\\Lund Data analysing\\Exam2021")
+```
+
+# 3a
+```{r}
+library(car)
+library(DescTools)
+library(DHARMa)
+library(ggplot2)
+library(ggmosaic)
+library(lattice)
+library(lmtest)
+library(MASS)
+library(MuMIn)
+
+```
+I choose chi square test, because in this question both dependent variable and independent variable are one- categery variable. so chi-squre test is suitable.
+```{r}
+moth <- read.csv("moth.csv")
+str(moth)
+attach(moth)
+moth<-table(hab,subs)
+moth
+a<-matrix(moth,nrow=2,ncol=2)
+colnames(a) <- c("subs0", "subs1")
+rownames(a)<-c("cold","warm")
+moth<-a
+moth
+```
+
+```{r}
+moth.dat <- data.frame(subs=c("subs0","subs0","subs1","subs1"), hab=c("cold","warm","cold","warm"), N=c(moth[,1], moth[,2]))
+# moth.dat
+ggplot(moth.dat, aes(x=subs, y=N, fill=hab)) +
+	geom_bar(stat="identity", position="dodge") +
+	theme_bw()
+```
+
+```{r}
+## 2. Assumptions of frequency tests.
+#a,Input data must be counts.
+#b.Categories must be mutually exclusive.
+#Obviously, the data is counted, and a moth can only belong to a single sub-species, and the habitat the moth choose is either "warm" or "cold". 
+#c.Expected counts per category must be > 5.
+fdata<-moth
+fexp<-matrix(NA,nrow(fdata),ncol(fdata))
+for (i in 1:nrow(fdata)) {
+	for (j in 1:ncol(fdata)) {
+		fexp[i,j]<-(((sum(fdata[i,]))/sum(fdata))*((sum(fdata[,j]))/sum(fdata))*(sum(fdata)))
+		}
+	}
+fexp# the result shows that expected count of each cell greater than 5.
+#All assumptions fullfild.
+```
+
+
+```{r}
+## 3. Chi-square test.
+# moth
+chisq.test(moth)
+#The result is that p-value = 0.06241, which acccept the null hypothesis, that the sub-species and habitats the moths choose are independent. So occurrence of the two subspecies doesn't differs between habitats.
+```
+
+```{r}
+## 4, Fisher's exact test
+fisher.test(moth)
+#p-value = 0.06043, means that subspecies and their choice of habitat is independent.
+```
+
+```{r}
+## 5. G-test
+GTest(moth,correct = "none")
+#p-value = 0.02287 means subspecies and their choice of habitat is dependent.
+```
+Among these three tests, because the expected counts are very low, and the data is a 2*2 contingency table, Fisher-test is the best test to analyse this data. And the result of Fisher-test is that subspecies and their choice of habitat is independent.    
+In conclusion, the occurrence of the two subspecies doesn't differ between habitats.
+
+#3C
+Illustration
+
+```{r}
+# moth.dat
+ggplot(moth.dat, aes(x=subs, y=N, fill=hab)) +
+ geom_bar(stat="identity", position="dodge") +
+ xlab("Sub-species of moth") +
+ ylab("Counts") +
+ scale_x_discrete(labels=c("Sub-pecies0", "Sub-species1")) +
+ scale_fill_manual(name="Habitat", labels=c(cold="Cold", warm="Warm"), 
+ values=c(cold="#CCFF99", warm="#FFFF99")) +
+ theme_bw()
+
+```
+
+#3b
+```{r}
+moth<- read.csv("moth.csv")
+moth$hab <- factor(moth$hab)
+str(moth)
+```
+
+```{r}
+## 1,Explore data
+#Relationship between sub-species and host plant density
+plot(subs~host, data=moth)
+abline(lm(subs~host, data=moth))
+# In this plot, the distribution of the density of plant of the sites that moths choose is different between two sub-species.
+# And the regression line has a trend of increase.
+#
+#Relationship between sub-species and climate of habitat
+counts.hab <- data.frame(table(moth$hab, moth$subs))
+ggplot(counts.hab) +
+    geom_mosaic(aes(weight=Freq, x = product(Var1), fill = Var2)) +
+    theme_bw()
+#The proportion of "warm" and "cold" is similar. 
+#But "sub0" is likely to choose cold habitat, and "sub1" is likely to choose warm habitat.
+
+```
+
+
+```{r}
+## 2,Construct full model
+full.model <- glm(subs~host*hab, data=moth, family=binomial)
+```
+
+```{r}
+## 3,Model selection
+options(na.action = "na.fail")
+output <- dredge(full.model, rank=AIC)
+output
+# The best fitted model is "subs~host", and the second one is "subs~host+hab"
+
+```
+## 4,Construct best model
+``` {r}
+fit.moth <- glm(subs~host, data=moth, family=binomial)
+fit.moth2 <- glm(subs~host+hab, data=moth, family=binomial)
+#Second-ranked model
+Anova(fit.moth2, type=2)
+#There is a variable in second-ranked model not significant. 
+#So we only choose the first-ranked model,"subs~host". 
+```
+## 5,
+```{r}
+#Independent data
+dwtest(fit.moth)
+#The result is not significant, which means there is no correlation among data.
+
+#Residuals do not deviate from predicted distribution
+par(mfrow=c(2,2))
+plot(fit.moth)
+
+par(mfrow=c(1,1))
+simulationOutput <- simulateResiduals(fittedModel=fit.moth, n=250)
+plot(simulationOutput)
+
+testDispersion(simulationOutput)
+
+```
+
+
+
+```{r}
+## 6,Get results of binomial GLM
+#First-rankd model
+Anova(fit.moth, type=2)
+#The difference of host plant density between two types is significant.
+
+summary(fit.moth)
+#the model is not significant, but the p-value is close to 0.05.
+```
+In conclusion, using GLM, the system compares of all possible model, fount that the model "subs~host" is the best fitted, which means that habitats couldn't determine the occurrence of two subspecies. Though the model "subs~host" is not significant, the plot shows that the occurrence of the sub-species is determined by the availability of the potential host plant. 
+
+
+#3c
+```{r}
+## Illustration
+plot(subs~host, xlab="Density of host plant", ylab="Sub-species", ylim=c(0,1.4), data = moth)
+#
+coefs<-coefficients(fit.moth)
+coefs
+x <- seq(min(moth$host), max(moth$host), len=100)
+y <- coefs[1] + coefs[2]*x
+pred <- exp(y)/(1+exp(y)) 
+#
+lines(x, pred, col="#339966", lty=2)
+
+```
+
+
+
+
+

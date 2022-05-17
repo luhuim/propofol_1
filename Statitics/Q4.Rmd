@@ -1,0 +1,118 @@
+---
+title: "Q4"
+author: "Huimin Lu"
+date: "2022/1/15"
+output:
+  word_document: default
+  pdf_document: default
+---
+
+```{r}
+setwd("H:\\Lund Data analysing\\Exam2021")
+```
+
+```{r}
+library(car)
+library(GGally)
+library(ggplot2)
+library(gridExtra)
+library(Hmisc)
+library(lmtest)
+library(MVN)
+```
+
+# 4a
+The requirement of this question is that obtain a new variable to measure overall size. PCA allows to see the overall "shape" of the data. The score that gets through running PCA is that variable taht satisfied the requirement.
+```{r}
+#PCA
+#Import data and check
+morphs <- read.csv("morphs.csv")
+morphs$morph <- factor(morphs$morph)
+str(morphs)
+```
+
+```{r}
+#morphs
+#Check assumptions
+#Sufficient sample size
+str(morphs)
+#68 samples, greater than 5*5=25.
+
+#Correlations among variables
+rcorr(as.matrix(morphs[,2:6]))
+
+#Linearity
+pairs(morphs[,2:6])
+#Using ggplot2
+ggpairs(morphs[,2:6])
+#in the plot, the data fullfil the linearty
+
+#No outliers
+out <- NULL
+for (i in 2:6) {
+	out1 <- morphs[,i]>=mean(morphs[,i])+3*sd(morphs[,i]) | morphs[,i]<=mean(morphs[,i])-3*sd(morphs[,i])
+	out2 <- which(out1==TRUE)
+	out <- c(out, out2)
+	out <- unique(out)
+}
+out
+#Remove outliers
+morphs.no <- morphs[-out,]
+str(morphs.no)
+
+```
+
+```{r}
+#Construct PCA
+fit.pca <- princomp(morphs.no[,2:6], cor=TRUE) 
+fit.pca
+```
+
+```{r}
+#Get results of PCA
+summary(fit.pca)
+plot(fit.pca,type="lines")
+loadings(fit.pca)
+biplot(fit.pca, col=c("lightgrey","red"))
+#The result shows that CP1 and CP2 occupy the most part of variance, so they can get a very accurate view on where it stands in relation to other samples.
+```
+```{r}
+#This is the variable that could measure the overall size.
+fit.pca$scores[,1]
+```
+
+# 4b
+Using ANOVA to test whether the overall size of three morphs are equal. 
+```{r}
+# Univariate analysis of PC scores
+morphs.no$PC1 <- fit.pca$scores[,1]
+morphs.no
+```
+
+```{r}
+#construct model
+fit.pc1 <- lm(PC1~morph, data=morphs.no)
+#Check assumptions
+dwtest(fit.pc1)
+#dwtest, p-value = 0.03804, which means residuals autocorrelation.
+
+par(mfrow=c(2,2))
+plot(fit.pc1)
+#plot is good.
+par(mfrow=c(1,1))
+#Homogeneity of variances and normality of residuals
+leveneTest(fit.pc1)
+#The result not significant, which means fullfil assumption
+
+#Test 
+anova(fit.pc1)
+
+#Result of anova
+summary(fit.pc1)
+#P-value is 0.2483, not significant.
+```
+Through the anova test, the result is not significant, which means the overall size of three morphs are similar (not different).
+I don't think the result could indicate three types of morphs eat different types of prey.
+#4d
+How could the design of this study be improved?
+I think we should find an appropriate physical measurement to represent the overall size of species.  
