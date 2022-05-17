@@ -1,0 +1,187 @@
+---
+title: "Q1"
+author: "Huimin Lu"
+date: "2022/1/5"
+output:
+  word_document: default
+  pdf_document: default
+---
+# 1a 
+This data is suitable for ANCOVA, because we have a combination of categorical and
+continuous predictors.
+
+Setting working directory
+```{r}
+setwd("H:\\Lund Data analysing\\Exam2021")
+```
+##1, Import data and check
+```{r}
+library(car)
+library(ggplot2)
+library(lme4)
+library(lmerTest)
+library(lmtest)
+library(multcomp)
+library(MVN)
+library(stats19)
+library(caret)
+
+
+plankton <- read.csv("plankton.csv")
+plankton$treat <- factor(plankton$treat)
+str(plankton)
+```
+Treat is a categorical variable, p is a continuous variable, and plank is dependent variable. 
+
+##2, Explore data
+```{r cars}
+ggplot(plankton, aes(x=p, y=plank, color=treat)) +
+  geom_point() +
+  theme_bw()
+plot(plank~treat, data=plankton)
+```
+
+In the dot plot, we can see that there is positive trend in control group, but the there is little change with "p" increasing in "Removal of some fish" group.
+In the box plot, we can see that in control group the scale of plank is larger than the scale in "Removal of some fish" group.
+
+##3, Construct model
+Firstly, we should construct "plank~p*treat", to check if it would be appropriate to remove the interaction. 
+Comparing the result with "plank~p+treat" .
+```{r}
+fit.plankton <- lm(plank~p*treat, data=plankton)
+#Check if it would be appropriate to remove the interaction
+
+fit.plankton2 <- lm(plank~p+treat, data=plankton)
+AIC(fit.plankton)
+AIC(fit.plankton2)
+anova(fit.plankton, fit.plankton2)
+```
+The result shows that the interaction have lower AIC value, which means it has best fitness. And the result of anova() function shows that the two models are significantly different. So we need to take the interaction into consideraation.
+
+Additionally, I test the model "plank~p+treat+p* treat", but the result (below) is the same as "p* treat". So "p* treat" is the simplest model.
+
+```{r}
+fit.plankton3 <- lm(plank~p+treat+p*treat, data=plankton)
+AIC(fit.plankton3)
+anova(fit.plankton,  fit.plankton3)
+```
+##4, Checking the assumption
+
+```{r}
+#1, Independent measurements
+dwtest(fit.plankton)
+# The data is collected in an appropriate way, ans the lakes are therefore independent of each other.
+#2, Homogeneity of variances/homoscedasticity and normality of residuals
+par(mfrow=c(2,2))
+plot(fit.plankton)
+#the plot looks good.
+
+par(mfrow=c(1,1))
+shapiro.test(fit.plankton$residuals)
+#The Shapiro Wilk test was not significant (p = 0.69), so we can assume normality of residuals
+
+x <- fit.plankton$residuals
+y <- pnorm(summary(x), mean = mean(x, na.rm=TRUE), sd = sd(x, na.rm=TRUE))
+ks.test(x, y)
+#The result of KS-testis not significant, which means the distribution of residuals of two treatment is same.
+
+leveneTest(plank~treat, data=plankton)
+#The Levene test was not significant (p > 0.12), so we can assume homogeneity of the residual variances for all groups.
+
+#3, Linearity
+ggplot(plankton, aes(x=p, y=plank, color=treat)) +
+  geom_point() +
+  theme_bw()
+#There was a linear relationship between p and plank for each treatment
+
+#4, No relationship between predictor and covariate
+boxplot(p~treat, data=plankton)
+#the scale of 'p' value in two treatment is similar.
+anova(lm(p~treat, data=plankton))
+#The anova result is not significant, which means the predictors o two group is not significantly different.
+
+
+# in conclusion the data meet the assumption of ANCOVA.
+```
+
+##5, Get results of ancova
+```{r}
+anova(fit.plankton)
+#The result indicates that th interaction is significant.
+summary(fit.plankton)
+#The summary show that the slope and intercept of two equation
+```
+### In conclusion, the relationship between phosphorus concentration and plankton density depends on the treatment.
+### The variable phosphorus concentration and treatment are inctactive.
+
+# 1b
+Here is the graph.
+```{r}
+#illustrate
+# new.x <- expand.grid(DENSITY =seq(from = 8, to = 45, length.out = 10))
+new.x <- expand.grid( 
+  p=seq(min(plankton$p), max(plankton$p)),
+  treat=levels(plankton$treat))
+new.y <- predict(fit.plankton, newdata=new.x, interval = 'confidence')
+pred<- data.frame(new.y, new.x)
+ggplot(plankton, aes(x=p, y=plank, colour=treat)) +
+  geom_point(size=4) +
+  scale_colour_manual(values=c(Control="seagreen", Removal_of_some_fish="royalblue")) +
+  xlab("p") +
+  ylab("plank") +
+  geom_smooth(data=pred, aes(x=p, y=fit, ymin=lwr, ymax=upr, fill=treat), stat="identity") +
+  scale_fill_manual(values=c(Control="seagreen", Removal_of_some_fish="royalblue")) +
+  theme_bw()
+
+```
+
+The graph shows that there is a positive linear correlation between phosphorus concentration and plankton density in both treatments. But the extent of positive correlation depend on the treatment. The slope means the rate of increase. Now the slope is different because of treatment. In the lakes with full fishes, with the growth of phosphorus concentration, the plankton density increases much higher than that in the lakes without enough fishes.
+
+# 1c
+The linear equation is that in 'Control' group Y=108.029+9.58X. And in 'Removal_of_some_fish' group Y=(108.029+70.758)+(9.58-8.899)X, in brief, Y=178.787+0.681X.
+
+In 'Control' group, the amount of fishes in lakes is a normal quantity, and the plankton density would increase by 9.58, if phosphorus concentration of lake increase by one unit. And if phosphorus concentration of lakes is zero, in theory the plankton density would be 108.029.
+
+In 'Removal_of_some_fish' group, the amount of fishes in lakes is less than 'Control' group, and and the plankton density would increase by only 0.681, if phosphorus concentration of lake increase by one unit. And if phosphorus concentration of lakes is zero, in theory the plankton density would be 178.787.
+
+The contrast of intercept shows that if the lakes don't contain any phosphorus, the plankton density in lakes which have less fishes is higher than that in lakes with enough fishes. But, in the lakes with enough fished, the plankton density increase apparently with the growth of phosphorus concentration, surpassing the density in the lakes with less fishes and finally reaching twice as much density as less-fishes lakes. And in the lake with less fishes, plankton density doesn't change too much as phosphorus concentration growth. 
+
+The confidence intervals means the scale of fitted value of this linear model, and normally we choose 95% confidence intervals to determine the prediction interval of fitted value.
+
+The conclusion is that the density of plankton increases with growth of phosphorus 
+concentration, depending on the amount of fishes in the lakes. If the lakes have enough fishes, plankton would increases apparently. If the lakes have less fishes, plankton only have slight increasing.
+
+# 1d
+```{r}
+boxplot(plank~treat, data=plankton)
+# Using two unpaired sample t-test to check whether the means between two group is equal
+
+# Checking Assumption
+#1,Independent observations
+# The data is collected in an appropriate way, ans the lakes are therefore independent of each other.
+#2,Normality of data within each group
+# Shapiro-Wilk normality test for Control group's plankton density
+with(plankton, shapiro.test(plank[treat == "Control"])) #p-value = 0.8259
+# Shapiro-Wilk normality test for 'Removal_of_some_fish' group's plankton density
+with(plankton, shapiro.test(plank[treat == "Removal_of_some_fish"])) #p-value = 0.4313
+# Both groups' p-value is higher than 0.05, which means data in each group is normal distribution
+
+#3, homogeneity of variances
+leveneTest(plank~treat, data=plankton) #p-value=0.1256
+# there is no significant difference in variance between two groups
+#The data meet all three assumption.
+
+#constructing the test
+t.test(plank~treat, data=plankton, var.equal=TRUE)# p-value = 0.03
+#The null hypothesis is that the mean between two group is equal, and alternative hypothesis is that the mean is not equal
+#Now the p-value is lower than 0.03, and we can draw conclusion that the mean bteen two groups is significantly different.
+```
+
+The conclusion, the plankton density in enough-fishes lakes is significantly higher than the density in less-fishes lakes.
+
+
+
+
+
+
+
